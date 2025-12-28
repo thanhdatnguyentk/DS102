@@ -1,16 +1,27 @@
-TASK: ClassificationTask
+TASK: OpenEndedTask
 
 DATASET:
   FEATURE_DATASET:
-    TYPE: FeatureClassificationDataset
+    TYPE: Vivqav2FeatureDataset
     BATCH_SIZE: 64
-    WORKERS: 2
+    WORKERS: 0
     FEATURE_PATH:
-      FEATURES: features/OpenViVQA/features/x152++_faster_rcnn
+      FEATURES: features\vinvl_vinvl
       SCENE_TEXT: null
-      IMAGE: null
+      IMAGE: data/ds102/images
+    SCENE_TEXT_THRESHOLD: 0.3
+  DICT_DATASET:
+    TYPE: DictionaryDataset
+    BATCH_SIZE: 64
+    WORKERS: 0  
+    FEATURE_PATH:
+      FEATURES: features\vinvl_vinvl
+      SCENE_TEXT: null
+      IMAGE: data/ds102/images
+    SCENE_TEXT_THRESHOLD: 0.3
+  SCENE_TEXT_THRESHOLD: 0.3
   VOCAB:
-    TYPE: ClassificationVocab
+    TYPE: Vocab
     TOKENIZER: null
     MIN_FREQ: 1
     WORD_EMBEDDING: null
@@ -25,48 +36,61 @@ DATASET:
     QUESTION_TOKEN: <question>
     ANSWER_TOKEN: <answer>
     JSON_PATH:
-      TRAIN: features/OpenViVQA/annotations/OpenViVQA_train.json
-      DEV: features/OpenViVQA/annotations/OpenViVQA_dev.json
-      TEST: features/OpenViVQA/annotations/OpenViVQA_test.json
+      TRAIN: data/ds102/train.json
+      DEV: data/ds102/dev.json
+      TEST: data/ds102/test.json
   JSON_PATH:
-    TRAIN: features/OpenViVQA/annotations/OpenViVQA_train.json
-    DEV: features/OpenViVQA/annotations/OpenViVQA_dev.json
-    TEST: features/OpenViVQA/annotations/OpenViVQA_test.json
-
+      TRAIN: data/ds102/train.json
+      DEV: data/ds102/dev.json
+      TEST: data/ds102/test.json
 TRAINING:
   CHECKPOINT_PATH: saved_models
   LEARNING_RATE: 1.
+  RL_LEARNING_RATE: 0.00005
   WARMUP: 10000
   SCORE: CIDEr
   GET_SCORES: True
   TRAINING_BEAM_SIZE: 5
   EVALUATING_BEAM_SIZE: 3
   PATIENCE: 5
+  VERBOSE_SCORES:
+    - CIDEr
+    - BLEU
+    - ROUGE
+    - Accuracy
+    - F1
+    - Precision
+    - Recall
 
 MODEL:
-  ARCHITECTURE: VisiolinguisticTransformer
-  NAME: visiolinguistic_transformer_vlsp
-  DEVICE: cuda
-  REGION_EMBEDDING:
+  ARCHITECTURE: IterativeHierarchicalCoAttention
+  NAME: iterative_hierarchical_co_attention_ds102_new_data
+  DEVICE: cuda 
+  D_MODEL: 512
+  VISION_EMBEDDING:
     ARCHITECTURE: FeatureEmbedding
-    DEVICE: cuda
     D_FEATURE: 2048
     D_MODEL: 512
-    DROPOUT: .1
+    DROPOUT: 0.1
   TEXT_EMBEDDING:
     ARCHITECTURE: UsualEmbedding
-    DEVICE: cuda
+    D_MODEL: 300
     D_EMBEDDING: 300
-    D_MODEL: 512
-    DROPOUT: .1
-    WORD_EMBEDDING: null
+    DROPOUT: 0.1
+    WORD_EMBEDDING: Null
     WORD_EMBEDDING_CACHE: null
-  D_MODEL: 512
-  DROPOUT: .1
+  HIERARCHICAL:
+    D_MODEL: 512
+    WORD_EMBEDDING_DIM: 300
+    N_GRAMS:
+     - 1
+     - 2
+     - 3
+     - 4
   ENCODER:
     ARCHITECTURE: CoAttentionEncoder
     D_MODEL: 512
-    LAYERS: 3
+    LAYERS: 8
     VISION_LANGUAGE_ATTENTION:
       ARCHITECTURE: ScaledDotProductAttention
       HEAD: 8
@@ -107,6 +131,7 @@ MODEL:
       D_KEY: 64
       D_VALUE: 64
       D_FF: 2048
+      
       D_FEATURE: 2048
       USE_AOA: False
       CAN_BE_STATEFUL: False
@@ -117,3 +142,38 @@ MODEL:
   TEXT_ATTR_REDUCE:
     D_MODEL: 512
     DROPOUT: 0.1
+  DECODER:
+    ARCHITECTURE: Decoder
+    D_MODEL: 512
+    LAYERS: 3
+    ATTENTION:
+      SELF_ATTENTION:
+        ARCHITECTURE: ScaledDotProductAttention
+        HEAD: 8
+        D_MODEL: 512
+        D_KEY: 64
+        D_VALUE: 64
+        D_FF: 2048
+        D_FEATURE: 2048
+        USE_AOA: False
+        CAN_BE_STATEFUL: True
+        DROPOUT: .1
+      ENC_ATTENTION:
+        ARCHITECTURE: ScaledDotProductAttention
+        HEAD: 8
+        D_MODEL: 512
+        D_KEY: 64
+        D_VALUE: 64
+        D_FF: 2048
+        D_FEATURE: 2048
+        USE_AOA: False
+        CAN_BE_STATEFUL: False
+        DROPOUT: .1
+    TEXT_EMBEDDING:
+      ARCHITECTURE: UsualEmbedding
+      D_MODEL: 512
+      D_EMBEDDING: 300
+      WORD_EMBEDDING: null
+      WORD_EMBEDDING_CACHE: null
+      DROPOUT: 0.1
+
