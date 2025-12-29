@@ -91,7 +91,7 @@ class ClassificationTask(BaseTask):
                     with torch.no_grad():
                         out = self.model(items).contiguous()
                     
-                    answer = items.answer
+                    answer = items.answer_tokens
                     loss = self.loss_fn(out.view(-1, self.vocab.total_answers), answer.view(-1))
                     this_loss = loss.item()
                     running_loss += this_loss
@@ -113,7 +113,7 @@ class ClassificationTask(BaseTask):
                 with torch.no_grad():
                     outs = self.model(items).contiguous()
 
-                answers_gt = self.vocab.decode_answer(items.answer.squeeze(-1), join_word=True)
+                answers_gt = self.vocab.decode_answer(items.answer_tokens.squeeze(-1), join_word=True)
                 answers_gen = self.vocab.decode_answer(outs.argmax(dim=-1), join_word=True)
                 for i, (gts_i, gen_i) in enumerate(zip(answers_gt, answers_gen)):
                     gens['%d_%d' % (it, i)] = [gen_i, ]
@@ -133,7 +133,7 @@ class ClassificationTask(BaseTask):
             for it, items in enumerate(self.train_dataloader):
                 items = items.to(self.device)
                 out = self.model(items).contiguous()
-                answer = items.answer
+                answer = items.answer_tokens
                 self.optim.zero_grad()
                 loss = self.loss_fn(out.view(-1, self.vocab.total_answers), answer.view(-1))
                 loss.backward()
@@ -178,9 +178,9 @@ class ClassificationTask(BaseTask):
                 best = True
             else:
                 patience += 1
-
+            print("patience", patience) 
             exit_train = False
-            if patience == self.patience:
+            if patience >= self.patience:
                 logger.info('patience reached.')
                 exit_train = True
 
@@ -215,7 +215,7 @@ class ClassificationTask(BaseTask):
                 with torch.no_grad():
                     outs = self.model(items)
 
-                answers_gt = self.vocab.decode_answer(items.answer.squeeze(-1), join_word=True)
+                answers_gt = self.vocab.decode_answer(items.answer_tokens.squeeze(-1), join_word=True)
                 answers_gen = self.vocab.decode_answer(outs.argmax(dim=-1), join_word=True)
                 gts = {}
                 gens = {}

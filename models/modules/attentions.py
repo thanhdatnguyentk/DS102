@@ -53,7 +53,17 @@ class ScaledDotProductAttention(nn.Module):
 
         att = torch.matmul(q, k) / np.sqrt(self.d_k)  # (b_s, h, nq, nk)
         if attention_mask is not None:
-            att += attention_mask
+            # 1. Đảm bảo mask luôn là 4D (b_s, 1, nq, nk)
+            if attention_mask.dim() == 3:
+                attention_mask = attention_mask.unsqueeze(1)
+            
+            # 2. Xử lý trường hợp Beam Search (khi b_s của att đã bị nhân lên)
+            if att.shape[0] != attention_mask.shape[0]:
+                beam_size = att.shape[0] // attention_mask.shape[0]
+                attention_mask = attention_mask.unsqueeze(1).repeat(1, beam_size, 1, 1, 1)
+                attention_mask = attention_mask.view(att.shape[0], *attention_mask.shape[2:])
+            
+            att += attention_mask   
         att = torch.softmax(att, dim=-1)
         out = torch.matmul(att, v).permute(0, 2, 1, 3).contiguous().view(b_s, nq, self.h * self.d_v)  # (b_s, nq, h*d_v)
         out = self.fc_o(out)  # (b_s, nq, d_model)
